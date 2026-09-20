@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "onra.nfl-scores",
+  "name": "NFL Scores",
+  "version": "0.1.0",
+  "author": "onra",
+  "license": "MIT",
+  "description": "NFL scores and schedule in the Omarchy bar: current week and live game count, with a panel to step through every week of the season.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "NFL Scores",
+    "description": "Click: scores and schedule. Middle click: refresh.",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}
