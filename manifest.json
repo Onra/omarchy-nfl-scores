@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "author": "onra",
   "license": "MIT",
-  "description": "NFL scores and schedule in the Omarchy bar: current week and live game count, with a panel to step through every week of the season.",
+  "description": "NFL scores and schedule in the Omarchy bar: current week and live game count, with a panel to step through every week of the season, box scores, player cards and standings.",
   "kinds": [
     "bar-widget"
   ],
@@ -14,7 +14,7 @@
   },
   "barWidget": {
     "displayName": "NFL Scores",
-    "description": "Click: scores and schedule. Middle click: refresh.",
+    "description": "Click: scores, box scores, player cards and standings. Middle click: refresh.",
     "category": "Info",
     "allowMultiple": false,
     "defaultSection": "center"

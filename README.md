@@ -2,11 +2,15 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-NFL Scores is a bar widget for the [Omarchy](https://omarchy.org) shell. The bar shows the current week and the number of games that are live right now. A click on the widget opens a panel with the scores and the schedule of every game in the week, and you can step through every week of the season. The panel also has a standings view, by division. The data comes from ESPN's public scoreboard, which does not need an API key.
+NFL Scores is a bar widget for the [Omarchy](https://omarchy.org) shell. The bar shows the current week and the number of games that are live right now. A click on the widget opens a panel with the scores and the schedule of every game in the week, and you can step through every week of the season. Every game that has kicked off opens its full box score, and every player in it opens his card (bio, draft, salary, awards, career). The panel also has a standings view, by division. The data comes from ESPN's public scoreboard, which does not need an API key.
 
-| Scores and schedule | Standings |
-| :---: | :---: |
-| <img src="screenshots/scores.png" alt="The NFL Scores panel: the games of week 2, with the kickoff time, the TV network, the records and the spread" width="380"> | <img src="screenshots/standings.png" alt="The NFL Scores panel: the standings of the 32 teams, by division" width="380"> |
+| Scores and schedule | Box score | Player card |
+| :---: | :---: | :---: |
+| <img src="screenshots/scores.png" alt="The NFL Scores panel: the games of week 2, with the kickoff time, the TV network, the records and the spread" width="270"> | <img src="screenshots/box.png" alt="The box score of Buccaneers at Cowboys: the score by quarter, the scoring plays, the team stats side by side, then the passing, rushing and receiving tables of each team" width="270"> | <img src="screenshots/player.png" alt="The card of Patrick Mahomes: photo, age, size, birthplace, draft, college, this season's passing and rushing, salary by season with the seasons to come, awards and career by season" width="270"> |
+
+| Standings |
+| :---: |
+| <img src="screenshots/standings.png" alt="The NFL Scores panel: the standings of the 32 teams, by division" width="270"> |
 
 ## Contents
 
@@ -25,6 +29,8 @@ NFL Scores is a bar widget for the [Omarchy](https://omarchy.org) shell. The bar
 
 - The bar shows `🏈 W2`, plus `● 3` in the active color while three games are live
 - A panel with every game of the week: kickoff time in your timezone, TV network, team records, the score, and the betting spread before kickoff
+- A box score for every game that has kicked off: the score by quarter, the scoring plays, the team stats side by side, and the passing, rushing, receiving, defense, kicking and return tables of each team
+- A card for every player in a box score: photo, age, size, birthplace, draft, college, injury, this season, salary by season (the seasons to come included), awards, and career by season in the tables that fit his position (passing, rushing, receiving, defense, kicking, punting, returns)
 - Live games refresh every 30 seconds, and everything else every 5 minutes
 - Step through the whole season: the preseason, the regular season and the postseason
 - Standings for the 32 teams, by division: record, win percentage, points for and against, difference, and streak
@@ -37,6 +43,7 @@ NFL Scores is a bar widget for the [Omarchy](https://omarchy.org) shell. The bar
 
 - [Omarchy](https://omarchy.org) with the shell plugin system
 - `curl`, to fetch the scores
+- `python3`, for the player cards
 - (Optional) [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) and `python3`, to find the highlights video behind the **Recap** button. Without them the button does not appear, and the rest of the plugin works the same.
 
 ## Installation
@@ -75,14 +82,19 @@ The widget belongs to the `center` section of the bar by default. To place it so
 |---|---|
 | Click on the bar widget | Open or close the panel |
 | Middle-click on the bar widget | Refresh the scores now |
-| `←` / `→` | Previous or next week (scores view) |
-| `↑` / `↓` | Scroll the list |
+| Click on a game | Open its box score |
+| Click on a player in a box score | Open his card |
+| `←` / `→` | Previous or next week (scores), previous or next game (box score) |
+| `↑` / `↓` | Move the cursor through the games (scores), scroll (box score, standings) |
+| `Enter` | Open the box score of the game under the cursor |
+| `y` | Open the recap of the game under the cursor, or of the open box score |
+| `b` | Back: from a card to the box score, from a box score to the scores |
 | `t` | Jump back to the scores of this week |
 | `s` | Switch between the scores and the standings |
 | `r` | Refresh |
-| `Esc` | Close the panel |
+| `Esc` | Back from a card or a box score, or close the panel |
 
-The header of the panel has the same controls as buttons: the arrows step through the weeks, a **This week** button appears when you look at another week, and the **Standings** button switches the view. The panel always opens on the scores of the current week.
+The header of the panel has the same controls as buttons: the arrows step through the weeks, a **This week** button appears when you look at another week, and the **Standings** button switches the view. In a box score, **‹ Scores** goes back to the week and **▶ Recap** opens the highlights. The panel always opens on the scores of the current week.
 
 When the bar is vertical, the widget shows the 🏈 glyph alone.
 
@@ -103,6 +115,8 @@ omarchy-shell onra.nfl-scores toggle
 | `today` | Show the scores of the current week |
 | `scores` | Switch to the scores |
 | `standings` | Switch to the standings |
+| `box` | Open the box score of the game under the cursor |
+| `player <id>` | Open the card of a player, by ESPN athlete id |
 | `refresh` | Fetch now |
 
 For example, this line in `~/.config/hypr/bindings.lua` opens the panel on a key:
@@ -118,9 +132,10 @@ The panel takes the colors and the font from the shell, so it follows the Omarch
 ## How it works
 
 1. `Fetcher.qml` calls the ESPN scoreboard API with `curl`. The first call asks for the current week, which also gives the calendar of the whole season.
-2. `Model.js` turns the JSON of ESPN into the rows that the panel draws: the games, the standings, and the label of the bar.
-3. `Panel.qml` owns the fetchers and the refresh timer, so the label of the bar stays current while the panel is closed. When you step to another week, that week is fetched when you look at it, and the weeks that are final stay in memory.
-4. For finished games, `recap.py` looks for the official highlights video on the NFL channel of YouTube with `yt-dlp`. It keeps the answers in `~/.cache/onra-nfl-scores/recaps.json`. A video that is found stays in the cache. A game with no video is searched again after 30 minutes, because the NFL posts the highlights some hours after the game ends.
+2. `Model.js` turns the JSON of ESPN into the rows that the panel draws: the games, the standings, the box scores, and the label of the bar.
+3. `Panel.qml` owns the fetchers and the refresh timer, so the label of the bar stays current while the panel is closed. When you step to another week, that week is fetched when you look at it, and the weeks that are final stay in memory. A box score comes from ESPN's `summary` endpoint for the game, refreshed every 30 seconds while the game is live; a final box score stays in memory.
+4. A player card comes from `player.py`, which reads ESPN's athlete endpoints (bio, awards, career stats by category, and the contracts of every season, the seasons to come included) in parallel. It keeps each card in `~/.cache/onra-nfl-scores/players/` for 6 hours, and the salary of a past season for good.
+5. For finished games, `recap.py` looks for the official highlights video on the NFL channel of YouTube with `yt-dlp`. It keeps the answers in `~/.cache/onra-nfl-scores/recaps.json`. A video that is found stays in the cache. A game with no video is searched again after 30 minutes, because the NFL posts the highlights some hours after the game ends.
 
 ## Troubleshooting
 
