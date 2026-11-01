@@ -479,6 +479,16 @@ Panel {
       : root.playerMode ? Math.max(520, Model.playerWidth(root.player)) : 520))
     contentHeight: panel.fittedContentHeight(
       Math.max(Style.space(320), header.height + root.activeList.contentHeight + footer.height + Style.space(24)))
+    // The card grows and shrinks to the view rather than jumping (not while
+    // closed, so it opens at its size).
+    Behavior on contentHeight {
+      enabled: root.opened
+      NumberAnimation { duration: root.motionMs + 40; easing.type: Easing.OutCubic }
+    }
+    Behavior on contentWidth {
+      enabled: root.opened
+      NumberAnimation { duration: root.motionMs + 40; easing.type: Easing.OutCubic }
+    }
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -627,42 +637,14 @@ Panel {
         // Spinner beside the title while a manual refresh is running: a round
         // 270-degree arc with rounded caps, drawn rather than a font glyph so
         // it stays smooth at any size and theme font.
-        Shape {
+        Spinner {
           id: spinner
-          readonly property real size: Style.space(16)
-          readonly property real stroke: Math.max(2, Style.space(2))
-
           anchors.left: titleColumn.right
           anchors.leftMargin: Style.space(12)
           anchors.verticalCenter: parent.verticalCenter
-          width: size
-          height: size
-          visible: root.manualRefresh
-          layer.enabled: true
-          layer.samples: 4
-
-          ShapePath {
-            strokeColor: root.fg
-            strokeWidth: spinner.stroke
-            fillColor: "transparent"
-            capStyle: ShapePath.RoundCap
-
-            PathAngleArc {
-              centerX: spinner.size / 2
-              centerY: spinner.size / 2
-              radiusX: (spinner.size - spinner.stroke) / 2
-              radiusY: (spinner.size - spinner.stroke) / 2
-              startAngle: 0
-              sweepAngle: 270
-            }
-          }
-
-          RotationAnimator on rotation {
-            running: root.manualRefresh
-            from: 0; to: 360
-            duration: 800
-            loops: Animation.Infinite
-          }
+          size: Style.space(16)
+          color: root.fg
+          spinning: root.manualRefresh
         }
 
         // "This week" appears only once you have wandered off it.
@@ -752,15 +734,14 @@ Panel {
       }
 
       // ---- games -----------------------------------------------------------------
-      ListView {
+      ViewList {
         id: list
         visible: root.mode === "scores"
+        page: root.viewKey
         anchors.top: headerRule.bottom
         anchors.bottom: footer.top
         anchors.left: parent.left
         anchors.right: parent.right
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
         model: root.viewRows
 
         // A refresh swaps the model for a fresh array, which snaps a plain
@@ -790,14 +771,9 @@ Panel {
           height: isDay ? Style.space(32) : Style.space(62)
 
           // A game that has kicked off opens its box score.
-          Rectangle {
-            anchors.fill: parent
-            anchors.leftMargin: Style.space(8)
-            anchors.rightMargin: Style.space(8)
-            radius: Math.min(4, Style.cornerRadius)
-            color: Style.hoverFillFor(root.fg, Color.accent)
-            visible: row.openable && (rowArea.containsMouse || row.current)
-            opacity: rowArea.containsMouse ? 1 : 0.6
+          HoverFill {
+            shown: row.openable && (rowArea.containsMouse || row.current)
+            level: rowArea.containsMouse ? 1 : 0.6
           }
 
           MouseArea {
@@ -946,29 +922,22 @@ Panel {
         }
 
         // Empty / loading / error states.
-        Text {
-          anchors.centerIn: parent
+        StatusMessage {
           visible: list.count === 0
-          textFormat: Text.PlainText
-          text: root.errorMessage !== "" ? root.errorMessage
-            : (root.viewKey === "" || root.cache[root.viewKey] === undefined) ? "Loading…"
-            : "No games scheduled"
-          color: root.errorMessage !== "" ? Color.urgent : root.dim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.title
+          loading: root.errorMessage === "" && (root.viewKey === "" || root.cache[root.viewKey] === undefined)
+          message: root.errorMessage !== "" ? root.errorMessage : "No games scheduled"
+          urgent: root.errorMessage !== ""
         }
       }
 
       // ---- standings ---------------------------------------------------------------
-      ListView {
+      ViewList {
         id: standingsList
         visible: root.standingsMode
         anchors.top: headerRule.bottom
         anchors.bottom: footer.top
         anchors.left: parent.left
         anchors.right: parent.right
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
         model: root.standingsRows
 
         // Same refresh-keeps-position handling as the scores list.
@@ -1102,27 +1071,23 @@ Panel {
           }
         }
 
-        Text {
-          anchors.centerIn: parent
+        StatusMessage {
           visible: standingsList.count === 0
-          textFormat: Text.PlainText
-          text: root.errorMessage !== "" ? root.errorMessage : "Loading…"
-          color: root.errorMessage !== "" ? Color.urgent : root.dim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.title
+          loading: root.errorMessage === ""
+          message: root.errorMessage
+          urgent: true
         }
       }
 
       // ---- box score -----------------------------------------------------------------
-      ListView {
+      ViewList {
         id: boxList
         visible: root.boxMode
+        page: root.boxId
         anchors.top: headerRule.bottom
         anchors.bottom: footer.top
         anchors.left: parent.left
         anchors.right: parent.right
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
         model: root.boxRows
 
         // Same refresh-keeps-position handling as the scores list (live games
@@ -1151,13 +1116,8 @@ Panel {
             : kind === "head" ? Style.space(34)
             : Style.space(26)
 
-          Rectangle {
-            visible: brow.hovered
-            anchors.fill: parent
-            anchors.leftMargin: Style.space(8)
-            anchors.rightMargin: Style.space(8)
-            radius: Math.min(4, Style.cornerRadius)
-            color: Style.hoverFillFor(root.fg, Color.accent)
+          HoverFill {
+            shown: brow.hovered
           }
 
           // Quarter-by-quarter scoring.
@@ -1376,27 +1336,23 @@ Panel {
           }
         }
 
-        Text {
-          anchors.centerIn: parent
+        StatusMessage {
           visible: boxList.count === 0
-          textFormat: Text.PlainText
-          text: root.errorMessage !== "" ? root.errorMessage : "Loading…"
-          color: root.errorMessage !== "" ? Color.urgent : root.dim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.title
+          loading: root.errorMessage === ""
+          message: root.errorMessage
+          urgent: true
         }
       }
 
       // ---- player card ------------------------------------------------------------------
-      ListView {
+      ViewList {
         id: playerList
         visible: root.playerMode
+        page: root.playerId
         anchors.top: headerRule.bottom
         anchors.bottom: footer.top
         anchors.left: parent.left
         anchors.right: parent.right
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
         model: root.playerRows
 
         delegate: Item {
@@ -1626,14 +1582,11 @@ Panel {
           }
         }
 
-        Text {
-          anchors.centerIn: parent
+        StatusMessage {
           visible: playerList.count === 0
-          textFormat: Text.PlainText
-          text: root.errorMessage !== "" ? root.errorMessage : "Loading…"
-          color: root.errorMessage !== "" ? Color.urgent : root.dim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.title
+          loading: root.errorMessage === ""
+          message: root.errorMessage
+          urgent: true
         }
       }
 
@@ -1662,6 +1615,140 @@ Panel {
           font.pixelSize: Style.font.caption
         }
       }
+    }
+  }
+
+  // ---- motion ----------------------------------------------------------------------
+  // One pace for the whole panel: quick enough to never wait on it.
+  readonly property int motionMs: 180
+
+  // A view's list. It fades and rises into place when it opens, when it turns
+  // to another page and when its rows arrive, instead of popping in; a refresh
+  // of the rows shown stays still.
+  component ViewList: ListView {
+    id: view
+    property string page: ""
+    readonly property bool filled: count > 0
+    clip: true
+    boundsBehavior: Flickable.StopAtBounds
+    transform: Translate { id: rise }
+
+    function enter() { if (view.visible) enterAnim.restart() }
+    onVisibleChanged: view.enter()
+    onPageChanged: view.enter()
+    onFilledChanged: if (view.filled) view.enter()
+
+    ParallelAnimation {
+      id: enterAnim
+      NumberAnimation { target: view; property: "opacity"; from: 0; to: 1; duration: root.motionMs; easing.type: Easing.OutCubic }
+      NumberAnimation { target: rise; property: "y"; from: Style.space(8); to: 0; duration: root.motionMs + 40; easing.type: Easing.OutCubic }
+    }
+  }
+
+  // The hover (or keyboard cursor) fill of a row, fading rather than blinking.
+  component HoverFill: Rectangle {
+    property bool shown: false
+    property real level: 1
+    anchors.fill: parent
+    anchors.leftMargin: Style.space(8)
+    anchors.rightMargin: Style.space(8)
+    radius: Math.min(4, Style.cornerRadius)
+    color: Style.hoverFillFor(root.fg, Color.accent)
+    opacity: shown ? level : 0
+    visible: opacity > 0
+    Behavior on opacity { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+  }
+
+  // A round 270-degree arc with rounded caps, drawn rather than a font glyph so
+  // it stays smooth at any size and theme font.
+  component Spinner: Shape {
+    id: spin
+    property real size: Style.space(16)
+    property color color: Color.foreground
+    property bool spinning: false
+    readonly property real stroke: Math.max(2, spin.size / 8)
+    width: size
+    height: size
+    visible: spinning
+    layer.enabled: true
+    layer.samples: 4
+
+    ShapePath {
+      strokeColor: spin.color
+      strokeWidth: spin.stroke
+      fillColor: "transparent"
+      capStyle: ShapePath.RoundCap
+
+      PathAngleArc {
+        centerX: spin.size / 2
+        centerY: spin.size / 2
+        radiusX: (spin.size - spin.stroke) / 2
+        radiusY: (spin.size - spin.stroke) / 2
+        startAngle: 0
+        sweepAngle: 270
+      }
+    }
+
+    RotationAnimator on rotation {
+      running: spin.spinning && spin.visible
+      from: 0; to: 360
+      duration: 800
+      loops: Animation.Infinite
+    }
+  }
+
+  // What an empty view says: a spinner while its rows load, else why it is
+  // empty (an error in the urgent color). The spinner waits a moment before
+  // showing, so a quick answer goes straight to the rows without a flash.
+  component StatusMessage: Item {
+    id: status
+    property bool loading: false
+    property string loadingText: "Loading…"
+    property string message: ""
+    property bool urgent: false
+    property bool late: false
+    anchors.centerIn: parent
+    width: parent.width
+    height: Style.space(80)
+
+    onLoadingChanged: if (!loading) late = false
+    Timer {
+      interval: 250
+      running: status.loading && status.visible && !status.late
+      onTriggered: status.late = true
+    }
+
+    Column {
+      anchors.centerIn: parent
+      spacing: Style.space(12)
+      opacity: status.loading && status.late ? 1 : 0
+      visible: opacity > 0
+      Behavior on opacity { NumberAnimation { duration: root.motionMs; easing.type: Easing.OutCubic } }
+
+      Spinner {
+        anchors.horizontalCenter: parent.horizontalCenter
+        size: Style.space(22)
+        color: root.dim
+        spinning: true
+      }
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        textFormat: Text.PlainText
+        text: status.loadingText
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+    }
+
+    Text {
+      anchors.centerIn: parent
+      visible: !status.loading && status.message !== ""
+      textFormat: Text.PlainText
+      text: status.message
+      color: status.urgent ? Color.urgent : root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.title
     }
   }
 
